@@ -2,49 +2,83 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-Mirror Android devices to your Mac and control them with your keyboard and mouse. Built on [scrcpy](https://github.com/Genymobile/scrcpy), Anmir provides a native macOS interface, device management and wireless pairing. adb is included; no separate Homebrew or Android SDK installation is needed.
+**Mirror and control Android devices on your Mac.**
+
+Built on [scrcpy](https://github.com/Genymobile/scrcpy) with a native macOS interface. adb is included; no separate Homebrew or Android SDK installation is needed.
 
 > /ˈæn.mɪr/ (AN-mir) · An(droid) + mir(ror)
 
+[Download](#download) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Release history](#release-history)
+
 ## Highlights
 
-- **USB and wireless:** automatic device discovery, QR codes, pairing codes and manual addresses. USB and wireless connections for the same device are grouped together.
-- **Multiple devices:** each mirror has its own window and Dock entry, with easy access to the device list.
-- **Screenshots and recording:** copy device screenshots to your Mac's clipboard, see screen recording duration and choose where to save files.
-- **Native macOS interface:** floating controls for Back, Home, Recents, screenshots and recording. The app supports light, dark and system appearance.
-- **Live language switching:** English, Simplified Chinese and Traditional Chinese. Settings are saved and shared across mirror windows.
+- **USB and wireless:** automatic device discovery, QR codes, pairing codes and manual addresses.
+- **Multiple devices:** separate mirror windows and Dock entries. USB and wireless connections for the same device are grouped together.
+- **Screenshots and recording:** copy device screenshots to your Mac's clipboard, see recording duration and choose where to save files.
+- **Floating controls:** Back, Home, Recents, screenshots and recording beside the mirror window.
+- **Appearance and language:** light, dark or system appearance; live switching between English, Simplified Chinese and Traditional Chinese. Settings apply to mirror windows too.
 - **Local connections:** mirroring requires no account or cloud relay. ADB connections remain available for debugging and logs.
 
 ## Download
 
 [Latest release](https://github.com/laobie/Anmir/releases/latest) · macOS 11+ · Apple Silicon / Intel
 
-Device requirements: Android 5.0+ for USB mirroring; Android 11+ for wireless pairing.
+Choose **arm64** for Apple Silicon or **x86_64** for Intel.
 
 ## Screenshots
 
-<img src="doc/images/en/devices.png" alt="Anmir device manager in English" width="760" />
-
-<details>
-<summary>Wireless connections and settings</summary>
-
-<img src="doc/images/en/wireless.png" alt="Anmir wireless connection in English" width="500" />
-
-<img src="doc/images/en/settings.png" alt="Anmir settings in English" width="620" />
-
-</details>
+<table>
+  <tr>
+    <th>Device list</th>
+    <th>Screen mirroring and floating controls</th>
+  </tr>
+  <tr>
+    <td valign="top"><img src="doc/images/devices.png" alt="Anmir device list" width="480" /></td>
+    <td valign="top"><img src="doc/images/mirroring.png" alt="Anmir screen mirroring and floating controls" width="250" /></td>
+  </tr>
+</table>
 
 ## Quick start
 
-1. Open the DMG, drag Anmir into Applications and open it.
-2. Enable **Developer options → USB debugging** on your Android device.
-3. Connect the device to your Mac with a USB data cable and allow USB debugging on the device. A single ready device opens directly; with multiple devices, choose one from the list.
+### Install the app
 
-**Wireless:** connect your Android device and Mac to the same network, then enable **Developer options → Wireless debugging** on the Android device. Click the Wi-Fi add button in Anmir and use the device's **Pair device with QR code** scanner, or switch to a pairing code. Already paired devices can connect manually using an IP address and connection port.
+Open the DMG, drag Anmir into Applications and open it.
 
-**Everyday controls:** use the floating toolbar to control the Android device, capture screenshots or record its screen. Open Anmir Settings with the gear in either the device list or a mirror window, or press `⌘,`.
+<details>
+<summary>If macOS blocks the first launch</summary>
 
-If macOS blocks Anmir's first launch, double-click the **Privacy & Security** shortcut in the DMG window or extracted ZIP folder, then choose **Open Anyway** for Anmir. The app is not notarized; see [Apple's instructions](https://support.apple.com/102445).
+1. Double-click the **Privacy & Security** shortcut in the DMG window or extracted ZIP folder.
+2. In Privacy & Security, choose **Open Anyway** for Anmir.
+
+The app is not notarized; see [Apple's instructions](https://support.apple.com/102445).
+
+</details>
+
+### USB connection · Android 5.0+
+
+1. Enable **Developer options → USB debugging** on your Android device.
+2. Connect it to your Mac with a USB data cable and allow USB debugging on the device.
+
+A single ready device opens directly; with multiple devices, choose one from the device list.
+
+### Wireless connection · Android 11+
+
+1. Connect your device and Mac to the same network. Enable **Developer options → Wireless debugging** on the Android device.
+2. Click the **Wi-Fi add button** in Anmir and choose a connection method:
+
+| Method | Action |
+| --- | --- |
+| QR pairing | Select **Pair device with QR code** on the Android device and scan the code shown in Anmir. |
+| Pairing code | Select the discovered device and enter its pairing code. If discovery fails, enter the pairing address and port manually. |
+| Already paired device | Enter the device's IP address and connection port manually. |
+
+### Everyday controls
+
+| Action | Where |
+| --- | --- |
+| Back, Home and Recents | Floating toolbar beside the mirror window. |
+| Screenshots and recording | Floating toolbar. Screenshots go to your Mac's clipboard; recordings can be saved to a chosen location. |
+| Appearance, language and toolbar settings | Gear in the device list or mirror window, or `⌘,`. |
 
 ## Command line
 
@@ -57,9 +91,13 @@ The bundled `anmir` command accepts scrcpy options:
 
 ## Documentation and feedback
 
-[Building and LGPL relinking](doc/build-anmir.md) · [Shortcuts](doc/shortcuts.md) · [Connections](doc/connection.md) · [Audio](doc/audio.md) · [macOS architecture](doc/macos-architecture.md)
+- User guides: [Shortcuts](doc/shortcuts.md) · [Connections](doc/connection.md) · [Audio](doc/audio.md)
+- Developer docs: [Building and LGPL relinking](doc/build-anmir.md) · [macOS architecture](doc/macos-architecture.md)
 
-Report issues in [Issues](https://github.com/laobie/Anmir/issues), including the Anmir version, Mac processor, macOS and Android versions, and connection method.
+Report problems in [Issues](https://github.com/laobie/Anmir/issues), including:
+
+- Anmir version, Mac processor and macOS version.
+- Android version, connection method and steps to reproduce.
 
 ## Release history
 

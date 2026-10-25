@@ -2,49 +2,83 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-将安卓设备的屏幕投到 Mac，并用键盘和鼠标控制设备。基于 [scrcpy](https://github.com/Genymobile/scrcpy)，提供原生 macOS 界面、设备管理和无线配对。内置 adb，无需另装 Homebrew 或 Android SDK。
+**在 Mac 上投屏并控制安卓设备。**
+
+基于 [scrcpy](https://github.com/Genymobile/scrcpy)，提供原生 macOS 界面。内置 adb，无需另装 Homebrew 或 Android SDK。
 
 > /ˈæn.mɪr/（安米尔）· An(droid) + mir(ror)
 
+[下载](#下载) · [界面预览](#界面预览) · [快速开始](#快速开始) · [更新记录](#更新记录)
+
 ## 特色功能
 
-- **USB 与无线连接**：自动发现安卓设备，支持二维码、配对码和手动输入地址连接；同一设备的 USB 与无线连接合并展示。
-- **多设备投屏**：每台设备拥有独立投屏窗口和 Dock 入口，可随时打开设备列表。
-- **截图与录屏**：设备截图复制到 Mac 剪贴板；录制设备屏幕时显示时长，并可选择文件保存位置。
-- **原生 macOS 体验**：悬浮工具栏提供返回、主页、最近任务、截图和录屏操作；应用外观支持浅色、深色与跟随系统。
-- **多语言切换**：应用界面支持简体中文、繁体中文和英文，切换后即时生效；设置自动保存并同步到投屏窗口。
+- **USB 与无线连接**：自动发现安卓设备，支持二维码、配对码与手动输入地址连接。
+- **多设备管理**：独立投屏窗口与 Dock 入口；同一设备的 USB、无线连接合并展示。
+- **截图与录屏**：设备截图复制到 Mac 剪贴板；录屏显示时长，支持选择保存位置。
+- **悬浮工具栏**：在投屏窗口旁快速返回、打开主页、切换最近任务、截图和录屏。
+- **外观与语言**：浅色、深色或跟随系统；简体中文、繁体中文与英文即时切换，设置同步到投屏窗口。
 - **本地直连**：投屏无需账号或云端转发；ADB 连接也可用于调试与日志采集。
 
 ## 下载
 
 [最新版本](https://github.com/laobie/Anmir/releases/latest) · macOS 11+ · Apple Silicon / Intel
 
-设备系统要求：USB 投屏需 Android 5.0+，无线配对需 Android 11+。
+安装包架构：Apple Silicon 选择 **arm64**，Intel 选择 **x86_64**。
 
 ## 界面预览
 
-<img src="doc/images/zh-Hans/devices.png" alt="Anmir 简体中文设备管理界面" width="760" />
-
-<details>
-<summary>查看无线连接与设置</summary>
-
-<img src="doc/images/zh-Hans/wireless.png" alt="Anmir 简体中文无线连接界面" width="500" />
-
-<img src="doc/images/zh-Hans/settings.png" alt="Anmir 简体中文设置界面" width="620" />
-
-</details>
+<table>
+  <tr>
+    <th>设备列表</th>
+    <th>设备投屏与悬浮工具栏</th>
+  </tr>
+  <tr>
+    <td valign="top"><img src="doc/images/devices.png" alt="Anmir 设备列表" width="480" /></td>
+    <td valign="top"><img src="doc/images/mirroring.png" alt="Anmir 设备投屏与悬浮工具栏" width="250" /></td>
+  </tr>
+</table>
 
 ## 快速开始
 
-1. 打开 DMG，将 Anmir 拖入“应用程序”并打开。
-2. 在安卓设备上开启“开发者选项 → USB 调试”。
-3. 用 USB 数据线连接设备和 Mac，并在设备上允许 USB 调试。一台可用设备时自动投屏，多台时从列表选择。
+### 安装应用
 
-**无线连接**：设备与 Mac 连到同一网络，在设备上开启“开发者选项 → 无线调试”。点击 Anmir 的 Wi-Fi 加号，用设备的“使用二维码配对设备”入口扫码，也可切换到配对码连接；已配对设备可手动输入 IP 地址和连接端口。
+打开 DMG，将 Anmir 拖入“应用程序”并打开。
 
-**日常操作**：使用投屏窗口旁的工具栏控制设备、截图或录屏。点击设备列表或投屏窗口右上角的齿轮可打开 Anmir 设置，也可按 `⌘,`。
+<details>
+<summary>首次打开被 macOS 拦截</summary>
 
-首次打开 Anmir 若被 macOS 拦截，双击 DMG 窗口或 ZIP 解压目录中的 **Privacy & Security** 快捷入口，在“隐私与安全性”中选择 Anmir 对应的“仍要打开”。安装包尚未经过 Apple 公证，详见 [Apple 说明](https://support.apple.com/102445)。
+1. 双击 DMG 窗口或 ZIP 解压目录中的 **Privacy & Security** 快捷入口。
+2. 在“隐私与安全性”中，选择 Anmir 对应的“仍要打开”。
+
+安装包尚未经过 Apple 公证，详见 [Apple 说明](https://support.apple.com/102445)。
+
+</details>
+
+### USB 连接 · Android 5.0+
+
+1. 在安卓设备上开启“开发者选项 → USB 调试”。
+2. 用 USB 数据线连接设备和 Mac，并在设备上允许 USB 调试。
+
+一台可用设备时自动投屏；多台时从设备列表选择。
+
+### 无线连接 · Android 11+
+
+1. 设备与 Mac 连到同一网络，在设备上开启“开发者选项 → 无线调试”。
+2. 点击 Anmir 的 **Wi-Fi 加号**，选择连接方式：
+
+| 方式 | 操作 |
+| --- | --- |
+| 二维码配对 | 在设备上选择“使用二维码配对设备”，扫描 Anmir 显示的二维码。 |
+| 配对码配对 | 选择发现的设备并输入配对码；未发现设备时，手动输入配对地址和端口。 |
+| 连接已配对设备 | 手动输入设备的 IP 地址和连接端口。 |
+
+### 常用操作
+
+| 操作 | 入口 |
+| --- | --- |
+| 返回、主页、最近任务 | 投屏窗口旁的悬浮工具栏。 |
+| 截图、录屏 | 悬浮工具栏；截图复制到 Mac 剪贴板，录屏可选择保存位置。 |
+| 外观、语言、工具栏设置 | 设备列表或投屏窗口右上角的齿轮，或按 `⌘,`。 |
 
 ## 命令行
 
@@ -57,9 +91,13 @@
 
 ## 文档与反馈
 
-[构建与 LGPL 重新链接](doc/build-anmir.md) · [快捷键](doc/shortcuts.md) · [连接](doc/connection.md) · [音频](doc/audio.md) · [macOS 架构](doc/macos-architecture.md)
+- 使用指南：[快捷键](doc/shortcuts.md) · [连接](doc/connection.md) · [音频](doc/audio.md)
+- 开发文档：[构建与 LGPL 重新链接](doc/build-anmir.md) · [macOS 架构](doc/macos-architecture.md)
 
-反馈请到 [Issues](https://github.com/laobie/Anmir/issues)，附上 Anmir 版本、Mac 芯片、macOS 与 Android 版本及连接方式。
+反馈请到 [Issues](https://github.com/laobie/Anmir/issues)，附上：
+
+- Anmir 版本、Mac 芯片与 macOS 版本。
+- 安卓设备的系统版本、连接方式及复现步骤。
 
 ## 更新记录
 
