@@ -2,31 +2,24 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-Mirror and control Android from your Mac. Built on [scrcpy](https://github.com/Genymobile/scrcpy), Anmir adds native device management, wireless pairing and independent mirror windows. adb is included; no separate Homebrew or Android SDK installation is needed.
+Mirror Android devices to your Mac and control them with your keyboard and mouse. Built on [scrcpy](https://github.com/Genymobile/scrcpy), Anmir provides a native macOS interface, device management and wireless pairing. adb is included; no separate Homebrew or Android SDK installation is needed.
 
 > /ˈæn.mɪr/ (AN-mir) · An(droid) + mir(ror)
 
 ## Highlights
 
-- **USB and wireless:** automatic discovery, QR codes, pairing codes and manual addresses. Connections for the same phone are grouped together.
+- **USB and wireless:** automatic device discovery, QR codes, pairing codes and manual addresses. USB and wireless connections for the same device are grouped together.
 - **Multiple devices:** each mirror has its own window and Dock entry, with easy access to the device list.
-- **Screenshots and recording:** copy screenshots to the clipboard, see recording duration and choose where to save recordings.
-- **Native macOS interface:** floating controls for Back, Home, Recents, screenshots and recording; light, dark and system appearance.
+- **Screenshots and recording:** copy device screenshots to your Mac's clipboard, see screen recording duration and choose where to save files.
+- **Native macOS interface:** floating controls for Back, Home, Recents, screenshots and recording. The app supports light, dark and system appearance.
 - **Live language switching:** English, Simplified Chinese and Traditional Chinese. Settings are saved and shared across mirror windows.
-- **Local connections:** no account or cloud relay. ADB connections remain available for debugging and logs.
+- **Local connections:** mirroring requires no account or cloud relay. ADB connections remain available for debugging and logs.
 
 ## Download
 
-**v0.1.0** · macOS 11+
+[Latest release](https://github.com/laobie/Anmir/releases/latest) · macOS 11+ · Apple Silicon / Intel
 
-| Mac processor | DMG | ZIP |
-| --- | --- | --- |
-| Apple Silicon (M series) | [arm64](https://github.com/laobie/Anmir/releases/download/v0.1.0/Anmir-0.1.0-arm64.dmg) | [arm64](https://github.com/laobie/Anmir/releases/download/v0.1.0/Anmir-0.1.0-arm64.zip) |
-| Intel | [x86_64](https://github.com/laobie/Anmir/releases/download/v0.1.0/Anmir-0.1.0-x86_64.dmg) | [x86_64](https://github.com/laobie/Anmir/releases/download/v0.1.0/Anmir-0.1.0-x86_64.zip) |
-
-[All releases](https://github.com/laobie/Anmir/releases) · [SHA-256 checksums](https://github.com/laobie/Anmir/releases/download/v0.1.0/SHA256SUMS) · [Source package](https://github.com/laobie/Anmir/releases/download/v0.1.0/Anmir-0.1.0-source.tar.gz)
-
-USB mirroring requires Android 5.0+; wireless pairing requires Android 11+.
+Device requirements: Android 5.0+ for USB mirroring; Android 11+ for wireless pairing.
 
 ## Screenshots
 
@@ -44,14 +37,14 @@ USB mirroring requires Android 5.0+; wireless pairing requires Android 11+.
 ## Quick start
 
 1. Open the DMG, drag Anmir into Applications and open it.
-2. Enable **Developer options → USB debugging** on your phone.
-3. Connect with a USB data cable and allow debugging on the phone. A single ready device opens directly; with multiple devices, choose one from the list.
+2. Enable **Developer options → USB debugging** on your Android device.
+3. Connect the device to your Mac with a USB data cable and allow USB debugging on the device. A single ready device opens directly; with multiple devices, choose one from the list.
 
-**Wireless:** connect both devices to the same network, enable **Developer options → Wireless debugging** on the phone, then click the Wi-Fi add button in Anmir. Use the phone's **Pair device with QR code** scanner or switch to a pairing code. Already paired devices can also connect by address.
+**Wireless:** connect your Android device and Mac to the same network, then enable **Developer options → Wireless debugging** on the Android device. Click the Wi-Fi add button in Anmir and use the device's **Pair device with QR code** scanner, or switch to a pairing code. Already paired devices can connect manually using an IP address and connection port.
 
-**Everyday controls:** use the floating toolbar to capture screenshots, record or return to Home. Open Settings with the gear in either the device list or a mirror window, or press `⌘,`.
+**Everyday controls:** use the floating toolbar to control the Android device, capture screenshots or record its screen. Open Anmir Settings with the gear in either the device list or a mirror window, or press `⌘,`.
 
-If macOS blocks the first launch, double-click **Privacy & Security** in the installer and choose **Open Anyway** for Anmir. This version is not notarized; see [Apple's instructions](https://support.apple.com/102445).
+If macOS blocks Anmir's first launch, double-click the **Privacy & Security** shortcut in the DMG window or extracted ZIP folder, then choose **Open Anyway** for Anmir. The app is not notarized; see [Apple's instructions](https://support.apple.com/102445).
 
 ## Command line
 
@@ -66,7 +59,7 @@ The bundled `anmir` command accepts scrcpy options:
 
 [Building and LGPL relinking](doc/build-anmir.md) · [Shortcuts](doc/shortcuts.md) · [Connections](doc/connection.md) · [Audio](doc/audio.md) · [macOS architecture](doc/macos-architecture.md)
 
-Report issues in [Issues](https://github.com/laobie/Anmir/issues), including the version, operating systems and connection method.
+Report issues in [Issues](https://github.com/laobie/Anmir/issues), including the Anmir version, Mac processor, macOS and Android versions, and connection method.
 
 ## Release history
 
@@ -76,7 +69,7 @@ Report issues in [Issues](https://github.com/laobie/Anmir/issues), including the
 
 ## License
 
-Independently maintained, based on scrcpy v4.1. Not an official Genymobile project.
+Independently maintained, based on upstream scrcpy v4.1. Not an official Genymobile project.
 
 Licensed under [Apache 2.0](LICENSE), with [upstream attribution](NOTICE) preserved. Dependency licenses are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
