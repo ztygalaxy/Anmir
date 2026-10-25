@@ -105,6 +105,10 @@ Report problems in [Issues](https://github.com/laobie/Anmir/issues), including:
 | --- | --- | --- | --- |
 | v0.1.0 | 2026-10-25 | Initial release: native device management, USB/wireless mirroring, screenshots, recording and localization. | [Release](https://github.com/laobie/Anmir/releases/tag/v0.1.0) |
 
+## Special thanks
+
+Special thanks to [@ztygalaxy](https://github.com/ztygalaxy) for early testing and helpful suggestions.
+
 ## License
 
 Independently maintained, based on upstream scrcpy v4.1. Not an official Genymobile project.

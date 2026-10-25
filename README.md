@@ -105,6 +105,10 @@
 | --- | --- | --- | --- |
 | v0.1.0 | 2026-10-25 | 首次发布：原生设备管理、USB/无线投屏、截图录屏与多语言。 | [Release](https://github.com/laobie/Anmir/releases/tag/v0.1.0) |
 
+## 特别感谢
+
+特别感谢 [@ztygalaxy](https://github.com/ztygalaxy) 参与早期测试，并提出改进建议。
+
 ## 开源许可
 
 基于上游 scrcpy v4.1 独立维护，非 Genymobile 官方项目。
