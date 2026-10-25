@@ -9,4 +9,4 @@ The device list shows a connected Google Pixel 7 running Android 16.
 - `wireless.png`: manual connection form, with empty fields showing the app's example placeholders.
 - `settings.png`: appearance, language and toolbar settings.
 
-The app's original English language, light appearance and enabled toolbar were restored after capture.
+The pointer was kept outside the captured windows. The app's language, appearance and toolbar preferences were restored after capture.
