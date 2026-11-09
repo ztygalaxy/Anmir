@@ -11,6 +11,7 @@
 #include "toolbar.h"
 #import "device_ui.h"
 #import "mirror_session.h"
+#import "mirror_window.h"
 #include "events.h"
 
 #define SC_STATUS_BUBBLE_TAIL 6.f
@@ -295,6 +296,12 @@ sc_window_ui_init(struct sc_window_ui *ui, SDL_Window *window) {
     if (sc_window_ui_is_app()) {
         SCDeviceInstallMirrorIcon(NSBundle.mainBundle);
         NSWindow *native = sc_window_ui_get_native_window(ui);
+        SCMirrorWindowConfigure(native);
+    }
+}
+
+void SCMirrorWindowConfigure(NSWindow *native) {
+    if (native) {
         SCScrcpyWindowUI *controller = sc_window_ui_get_controller(native);
         // Let AppKit size and align the traffic lights and device/settings controls in a
         // roomier native titlebar rather than adding a second accessory row.
@@ -324,17 +331,24 @@ sc_window_ui_set_device_title(struct sc_window_ui *window_ui,
         return;
     }
 
+    SCMirrorWindowSetTitle(window, primary ? [NSString stringWithUTF8String:primary] : @"",
+        secondary ? [NSString stringWithUTF8String:secondary] : @"");
+}
+
+void SCMirrorWindowSetTitle(NSWindow *window, NSString *primary, NSString *secondary) {
     SCScrcpyWindowUI *ui = sc_window_ui_get_or_create_title(window);
     if (!ui.titleStack) {
         return;
     }
 
-    ui.primaryLabel.stringValue = primary
-        ? [NSString stringWithUTF8String:primary] : @"";
-    bool hasSecondary = secondary && *secondary;
+    ui.primaryLabel.stringValue = primary ?: @"";
+    bool hasSecondary = secondary.length > 0;
     ui.secondaryLabel.hidden = !hasSecondary;
-    ui.secondaryLabel.stringValue = hasSecondary
-        ? [NSString stringWithUTF8String:secondary] : @"";
+    ui.secondaryLabel.stringValue = hasSecondary ? secondary : @"";
+}
+
+void SCMirrorWindowRefreshAppearance(NSWindow *window) {
+    sc_window_ui_apply_title_colors(sc_window_ui_get_controller(window));
 }
 
 static NSPanel *
@@ -451,9 +465,8 @@ sc_window_ui_create_status_panel(NSString *text, BOOL timer) {
 }
 
 static void
-sc_window_ui_position_status_panel(NSPanel *panel, SDL_Window *toolbar,
+sc_window_ui_position_native_status_panel(NSPanel *panel, NSWindow *nativeToolbar,
                                    float anchorY, bool outwardLeft) {
-    NSWindow *nativeToolbar = sc_window_ui_get_native_sdl_window(toolbar);
     if (!panel || !nativeToolbar) { return; }
     SCStatusBubbleView *view = (SCStatusBubbleView *) panel.contentView;
     view.pointsLeft = !outwardLeft;
@@ -475,6 +488,13 @@ sc_window_ui_position_status_panel(NSPanel *panel, SDL_Window *toolbar,
         y = MAX(NSMinY(visible), MIN(y, NSMaxY(visible) - size.height));
     }
     [panel setFrameOrigin:NSMakePoint(round(x), round(y))];
+}
+
+static void
+sc_window_ui_position_status_panel(NSPanel *panel, SDL_Window *toolbar,
+                                   float anchorY, bool outwardLeft) {
+    sc_window_ui_position_native_status_panel(panel,
+        sc_window_ui_get_native_sdl_window(toolbar), anchorY, outwardLeft);
 }
 
 static void
@@ -549,6 +569,22 @@ sc_window_ui_recording_time(uint64_t elapsed) {
                                       minutes % 60, seconds];
 }
 
+NSPanel *SCMirrorCreateRecordingTimer(void) {
+    return sc_window_ui_create_status_panel(sc_window_ui_recording_time(0), YES);
+}
+
+void SCMirrorUpdateRecordingTimer(NSPanel *panel, NSWindow *toolbar,
+                                  float anchorY, BOOL outwardLeft,
+                                  uint64_t elapsedSeconds) {
+    SCStatusBubbleView *view = (SCStatusBubbleView *)panel.contentView;
+    NSString *time = sc_window_ui_recording_time(elapsedSeconds);
+    if (![view.label.stringValue isEqualToString:time]) {
+        [view updateText:time];
+        [panel setContentSize:view.frame.size];
+    }
+    sc_window_ui_position_native_status_panel(panel, toolbar, anchorY, outwardLeft);
+}
+
 void
 sc_window_ui_update_toolbar_accessories(struct sc_window_ui *window_ui,
                                         SDL_Window *toolbar,
@@ -584,21 +620,14 @@ sc_window_ui_update_toolbar_accessories(struct sc_window_ui *window_ui,
     }
     if (!recording) { return; }
 
-    NSString *time = sc_window_ui_recording_time(elapsedSeconds);
     BOOL created = !ui.recordingTimerPanel;
     if (created) {
-        ui.recordingTimerPanel = sc_window_ui_create_status_panel(time, YES);
+        ui.recordingTimerPanel = SCMirrorCreateRecordingTimer();
         [window addChildWindow:ui.recordingTimerPanel ordered:NSWindowAbove];
-    } else {
-        SCStatusBubbleView *view =
-            (SCStatusBubbleView *) ui.recordingTimerPanel.contentView;
-        if (![view.label.stringValue isEqualToString:time]) {
-            [view updateText:time];
-            [ui.recordingTimerPanel setContentSize:view.frame.size];
-        }
     }
-    sc_window_ui_position_status_panel(ui.recordingTimerPanel, toolbar,
-                                       recordAnchorY, outwardLeft);
+    SCMirrorUpdateRecordingTimer(ui.recordingTimerPanel,
+        sc_window_ui_get_native_sdl_window(toolbar), recordAnchorY,
+        outwardLeft, elapsedSeconds);
     if (!visible) {
         [ui.recordingTimerPanel orderOut:nil];
     } else if (created || !ui.recordingTimerPanel.visible) {

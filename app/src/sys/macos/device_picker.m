@@ -12,6 +12,8 @@
 #import "mirror_session.h"
 #import "application_lifecycle.h"
 #import "apk_installer.h"
+#import "ios_mirror.h"
+#import "ios_preparation.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +29,8 @@
 static NSString *currentDeviceSerial;
 static __weak NSWindow *mirrorWindow;
 static BOOL mirrorPresented;
+static SCIOSMirrorController *nativeIOSMirror;
+static BOOL nativeIOSMirrorClosed;
 
 static NSString *SCMirrorShownNotification(void) {
     return [SCMirrorHostBundleIdentifier() stringByAppendingString:@".MirrorShown"];
@@ -89,15 +93,21 @@ static NSString *sc_device_picker_string(const char *value) {
 @interface SCDeviceEntry : NSObject
 @property(nonatomic, copy) NSString *serial, *name, *state, *system;
 @property(nonatomic) enum sc_adb_device_type transportType;
+@property(nonatomic) BOOL ios;
+@property(nonatomic, strong) SCIOSDevice *iosDevice;
 @property(nonatomic, readonly) NSString *transport;
 @property(nonatomic, readonly) BOOL ready;
 @property(nonatomic) BOOL fallbackName;
 @property(nonatomic, readonly) NSString *displayName;
 @end
 @implementation SCDeviceEntry
-- (NSString *)displayName { return self.fallbackName ? SCLocalized(@"Android device") : self.name; }
+- (NSString *)displayName {
+    return self.fallbackName
+        ? SCLocalized(self.ios ? @"iPhone or iPad" : @"Android device") : self.name;
+}
 - (BOOL)ready { return [self.state isEqualToString:@"device"]; }
 - (NSString *)transport {
+    if (self.ios) { return @"USB"; }
     switch (self.transportType) {
         case SC_ADB_DEVICE_TYPE_USB: return @"USB";
         case SC_ADB_DEVICE_TYPE_TCPIP: return @"Wi-Fi";
@@ -135,7 +145,13 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 @property(nonatomic, strong) NSImageView *footerDot;
 @property(nonatomic, copy) NSArray<SCDeviceEntry *> *devices;
 @property(nonatomic, copy) NSArray<SCDeviceEntry *> *transports;
+@property(nonatomic, copy) NSArray<SCDeviceEntry *> *iosDevices;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, NSTask *> *sessions;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, SCIOSMirrorController *> *iosMirrors;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, SCIOSConnectionPreparation *> *iosConnections;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, SCMirrorLaunch *> *iosLaunches;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, SCMirrorPreparation *> *iosLaunchPreparations;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *iosClickTimes;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, SCMirrorPreparation *> *preparations;
 @property(nonatomic, strong) NSMutableSet<NSString *> *shownSessions;
 @property(nonatomic, copy) NSArray<SCMirrorSession *> *runningMirrors;
@@ -149,7 +165,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 @property(nonatomic, strong) SCDeviceWiFiController *wifi;
 @property(nonatomic, strong) SCDeviceReconnect *reconnect;
 @property(nonatomic, strong) NSPopover *details;
-@property(nonatomic) BOOL listed, refreshPending, scheduled;
+@property(nonatomic) BOOL listed, refreshPending, scheduled, iosDiscoveryPending;
 @property(nonatomic) NSUInteger generation;
 @property(nonatomic) NSUInteger pendingPreparations;
 - (void)refresh:(id)sender;
@@ -163,7 +179,13 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     if (self) {
         _devices = @[];
         _transports = @[];
+        _iosDevices = @[];
         _sessions = [NSMutableDictionary dictionary];
+        _iosMirrors = [NSMutableDictionary dictionary];
+        _iosConnections = [NSMutableDictionary dictionary];
+        _iosLaunches = [NSMutableDictionary dictionary];
+        _iosLaunchPreparations = [NSMutableDictionary dictionary];
+        _iosClickTimes = [NSMutableDictionary dictionary];
         _preparations = [NSMutableDictionary dictionary];
         _shownSessions = [NSMutableSet set];
         [NSDistributedNotificationCenter.defaultCenter addObserver:self
@@ -191,6 +213,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
         _watcher.availabilityChanged = ^{ [weakSelf updateFooter]; };
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(languageChanged:)
             name:SCLanguageChangedNotification object:nil];
+        [self refreshIOSDevices];
     }
     return self;
 }
@@ -220,6 +243,8 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 }
 
 - (BOOL)isRunning:(NSString *)serial {
+    SCIOSMirrorController *iosMirror = self.iosMirrors[serial];
+    if (iosMirror) { return iosMirror.running; }
     for (NSString *alias in [self aliasesForSerial:serial]) {
         if (([alias isEqualToString:currentDeviceSerial] && mirrorWindow.visible)
                 || (self.sessions[alias].running && [self.shownSessions containsObject:alias])) { return YES; }
@@ -283,7 +308,68 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
         [self applyMetadata:selected];
         [devices addObject:selected];
     }
+    [devices addObjectsFromArray:self.iosDevices];
     self.devices = devices;
+}
+
+- (void)refreshIOSDevices {
+    if (self.iosDiscoveryPending) { return; }
+    self.iosDiscoveryPending = YES;
+    __weak SCDeviceManager *weakSelf = self;
+    SCIOSDiscoverDevices(^(NSArray<SCIOSDevice *> *devices, NSError *error) {
+        SCDeviceManager *manager = weakSelf;
+        manager.iosDiscoveryPending = NO;
+        if (!manager || error) { return; }
+        NSMutableArray<SCDeviceEntry *> *entries = [NSMutableArray array];
+        NSMutableSet<NSString *> *present = [NSMutableSet set];
+        for (SCIOSDevice *device in devices) {
+            SCDeviceEntry *entry = [[SCDeviceEntry alloc] init];
+            entry.serial = SCIOSDeviceSerial(device);
+            entry.fallbackName = !device.name.length;
+            entry.name = device.name.length ? device.name : @"iPhone or iPad";
+            entry.state = @"device";
+            entry.system = device.system;
+            entry.ios = YES;
+            entry.iosDevice = device;
+            [entries addObject:entry];
+            [present addObject:entry.serial];
+            if (manager.window.visible && !manager.iosConnections[entry.serial]) {
+                manager.iosConnections[entry.serial] = [[SCIOSConnectionPreparation alloc] initWithIdentifier:device.identifier];
+            }
+            if (manager.window.visible && !manager.iosLaunches[entry.serial]
+                    && !manager.iosLaunchPreparations[entry.serial]) {
+                NSString *serial = entry.serial;
+                SCIOSConnectionPreparation *connection = manager.iosConnections[serial];
+                NSUInteger generation = manager.generation;
+                ++manager.pendingPreparations;
+                manager.iosLaunchPreparations[serial] = [SCMirrorLaunch prepareWithName:entry.name serial:serial
+                    hostBundle:SCMirrorHostBundle() completion:^(SCMirrorLaunch *launch, NSError *error) {
+                        (void)error;
+                        SCDeviceManager *current = weakSelf;
+                        if (current) { --current.pendingPreparations; }
+                        if (!current || current.generation != generation || current.iosConnections[serial] != connection) {
+                            [launch cleanup]; return;
+                        }
+                        [current.iosLaunchPreparations removeObjectForKey:serial];
+                        if (launch) { current.iosLaunches[serial] = launch; }
+                    }];
+            }
+        }
+        manager.iosDevices = entries;
+        for (NSString *serial in manager.iosConnections.allKeys.copy) {
+            if (![present containsObject:serial]) {
+                [manager.iosConnections[serial] stop]; [manager.iosConnections removeObjectForKey:serial];
+                [manager.iosLaunchPreparations[serial] cancel]; [manager.iosLaunchPreparations removeObjectForKey:serial];
+                [manager.iosLaunches[serial] cleanup]; [manager.iosLaunches removeObjectForKey:serial];
+                [manager.iosClickTimes removeObjectForKey:serial];
+            }
+        }
+        for (NSString *serial in manager.iosMirrors.allKeys.copy) {
+            if (![present containsObject:serial]) { [manager.iosMirrors[serial] close]; }
+        }
+        [manager rebuildDevices];
+        if (manager.window.visible) { [manager updateSummary:manager.listed]; }
+    });
 }
 
 - (void)mirrorShown:(NSNotification *)notification {
@@ -316,6 +402,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 - (NSString *)status:(SCDeviceEntry *)entry {
     if ([self isRunning:entry.serial]) { return @"Mirroring"; }
     if ([self isStarting:entry.serial]) { return @"Starting mirroring…"; }
+    if (entry.ios) { return @"Connected"; }
     if ([entry.state isEqualToString:@"unauthorized"]) { return @"Allow debugging on your device."; }
     if (!entry.ready) { return [entry.state isEqualToString:@"offline"] ? @"Offline" : @"Unknown"; }
     return self.failures[entry.serial] ?: @"Connected";
@@ -358,6 +445,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 }
 
 - (void)applyMetadata:(SCDeviceEntry *)entry {
+    if (entry.ios) { return; }
     NSDictionary *properties = self.metadata[entry.serial];
     NSString *model = properties[@"ro.product.model"];
     if (!model.length) { model = entry.name; }
@@ -395,6 +483,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
 - (void)refresh:(id)sender {
     (void)sender;
     if (!self.window.visible) { return; }
+    [self refreshIOSDevices];
     if (self.snapshot.running) { self.refreshPending = YES; return; }
     NSUInteger generation = self.generation;
     __weak SCDeviceManager *weakSelf = self;
@@ -437,8 +526,8 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
             [manager rebuildDevices];
         } else {
             // Do not leave stale Mirror controls enabled after discovery fails.
-            manager.devices = @[];
             manager.transports = @[];
+            [manager rebuildDevices];
         }
         free(buffer);
         sc_adb_devices_destroy(&devices);
@@ -492,6 +581,11 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
         [self applyMetadata:selected];
         displayName = selected.name;
     }
+    SCMirrorLaunch *preparedIOSLaunch = self.iosLaunches[serial];
+    if (preparedIOSLaunch) {
+        [self.iosLaunches removeObjectForKey:serial];
+        return [self launchPreparedMirror:preparedIOSLaunch serial:serial];
+    }
     NSUInteger generation = self.generation;
     __weak SCDeviceManager *weakSelf = self;
     ++self.pendingPreparations;
@@ -518,7 +612,25 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     NSError *error = nil;
     NSTask *task = [[NSTask alloc] init];
     task.executableURL = launch.executableURL;
-    task.environment = launch.environment;
+    NSMutableDictionary *environment = launch.environment.mutableCopy;
+    // A native iOS mirror uses the same named, badged Dock app as Android.
+    // Pass immutable device metadata and only a fresh tunnel check-in result.
+    if ([serial hasPrefix:@"ios-coredevice:"]) {
+        SCDeviceEntry *selected = nil;
+        for (SCDeviceEntry *entry in self.devices) { if ([entry.serial isEqual:serial]) { selected = entry; break; } }
+        if (!selected.iosDevice) {
+            [launch cleanup]; self.failures[serial] = @"Device disconnected. Scan again.";
+            [self.table reloadData]; return NO;
+        }
+        environment[@"ANMIR_IOS_IDENTIFIER"] = selected.iosDevice.identifier;
+        environment[@"ANMIR_IOS_NAME"] = selected.iosDevice.name;
+        environment[@"ANMIR_IOS_SYSTEM"] = selected.iosDevice.system;
+        environment[@"ANMIR_IOS_CLICK_UPTIME"] = self.iosClickTimes[serial].stringValue ?: @"";
+        NSString *prepared = self.iosConnections[serial].environmentValue;
+        if (prepared) { environment[@"ANMIR_IOS_PREPARED_TUNNEL"] = prepared; }
+        else { [environment removeObjectForKey:@"ANMIR_IOS_PREPARED_TUNNEL"]; }
+    }
+    task.environment = environment;
     task.arguments = SCMirrorArguments(NSProcessInfo.processInfo.arguments, serial);
     __weak SCDeviceManager *weakSelf = self;
     task.terminationHandler = ^(NSTask *completed) {
@@ -527,8 +639,10 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
         dispatch_async(dispatch_get_main_queue(), ^{
             SCDeviceManager *manager = weakSelf;
             if (manager.sessions[serial] != completed) { return; }
-            [manager.reconnect mirrorEnded:serial properties:manager.metadata[serial] ?: @{}
-                unexpected:status == SCRCPY_EXIT_DISCONNECTED];
+            if (![serial hasPrefix:@"ios-coredevice:"]) {
+                [manager.reconnect mirrorEnded:serial properties:manager.metadata[serial] ?: @{}
+                    unexpected:status == SCRCPY_EXIT_DISCONNECTED];
+            }
             [manager.sessions removeObjectForKey:serial];
             [manager.shownSessions removeObject:serial];
             if (status) { manager.failures[serial] = @"Mirroring stopped. Try again."; }
@@ -538,7 +652,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     BOOL launched = [task launchAndReturnError:&error];
     if (launched) {
         self.sessions[serial] = task;
-        [self.reconnect mirroringSerial:serial properties:self.metadata[serial] ?: @{}];
+        if (![serial hasPrefix:@"ios-coredevice:"]) { [self.reconnect mirroringSerial:serial properties:self.metadata[serial] ?: @{}]; }
         [self.failures removeObjectForKey:serial];
     } else {
         [launch cleanup];
@@ -550,7 +664,43 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     return launched;
 }
 
-- (void)startMirror:(NSButton *)button { [self mirrorSerial:button.identifier]; }
+- (void)startMirror:(NSButton *)button {
+    SCDeviceEntry *selected = nil;
+    for (SCDeviceEntry *entry in self.devices) {
+        if ([entry.serial isEqualToString:button.identifier]) { selected = entry; break; }
+    }
+    if (selected.ios) {
+        self.iosClickTimes[selected.serial] = @(NSProcessInfo.processInfo.systemUptime);
+        if ([[SCMirrorHostBundle() objectForInfoDictionaryKey:@"CFBundlePackageType"] isEqualToString:@"APPL"]) {
+            [self mirrorSerial:selected.serial displayName:selected.name]; return;
+        }
+        SCIOSMirrorController *existing = self.iosMirrors[selected.serial];
+        if (existing) { [existing show]; return; }
+        SCIOSDevice *device = selected.iosDevice;
+        if (!device) {
+            self.failures[selected.serial] = @"Device disconnected. Scan again.";
+            [self.table reloadData];
+            return;
+        }
+        SCIOSMirrorController *mirror = [[SCIOSMirrorController alloc] initWithDevice:device];
+        __weak SCDeviceManager *weakSelf = self;
+        __weak SCIOSMirrorController *weakMirror = mirror;
+        NSString *serial = selected.serial;
+        mirror.closed = ^{
+            SCDeviceManager *manager = weakSelf;
+            if (manager.iosMirrors[serial] == weakMirror) {
+                [manager.iosMirrors removeObjectForKey:serial];
+                [manager.table reloadData];
+            }
+        };
+        self.iosMirrors[selected.serial] = mirror;
+        [self.failures removeObjectForKey:selected.serial];
+        [mirror show];
+        [self.table reloadData];
+        return;
+    }
+    [self mirrorSerial:button.identifier];
+}
 
 - (void)openWiFi:(id)sender {
     (void)sender;
@@ -603,17 +753,18 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     NSViewController *controller = [[NSViewController alloc] init];
     controller.view = [[SCDeviceSurface alloc] initWithFrame:NSMakeRect(0, 0, 320, 178)];
     NSString *serial = properties[@"ro.serialno"] ?: properties[@"ro.boot.serialno"] ?: entry.serial;
+    if (entry.ios) { serial = entry.iosDevice.udid ?: entry.serial; }
     NSString *host = SCDeviceHost(entry.serial);
-    NSTextField *ip = [self detailValue:host ?: (entry.ready ? @"Checking…" : @"Unavailable")];
-    if (!host) { SCBind(ip, @"stringValue", entry.ready ? @"Checking…" : @"Unavailable"); }
+    NSTextField *ip = [self detailValue:host ?: (entry.ready && !entry.ios ? @"Checking…" : @"Unavailable")];
+    if (!host) { SCBind(ip, @"stringValue", entry.ready && !entry.ios ? @"Checking…" : @"Unavailable"); }
     NSImageView *phone = [NSImageView imageViewWithImage:SCDeviceSymbol(@"iphone")];
     phone.contentTintColor = NSColor.secondaryLabelColor;
     [phone.widthAnchor constraintEqualToConstant:24].active = YES;
     [phone.heightAnchor constraintEqualToConstant:32].active = YES;
-    NSTextField *name = entry.fallbackName ? SCDeviceLocalizedLabel(@"Android device", 13, NSFontWeightSemibold, NO)
+    NSTextField *name = entry.fallbackName ? SCDeviceLocalizedLabel(entry.ios ? @"iPhone or iPad" : @"Android device", 13, NSFontWeightSemibold, NO)
         : SCDeviceLabel(entry.name, 13, NSFontWeightSemibold, NO);
     if (!entry.fallbackName) { name.toolTip = entry.name; }
-    NSTextField *transport = SCDeviceLocalizedLabel(entry.transportType == SC_ADB_DEVICE_TYPE_EMULATOR
+    NSTextField *transport = SCDeviceLocalizedLabel(!entry.ios && entry.transportType == SC_ADB_DEVICE_TYPE_EMULATOR
         ? @"Emulator" : entry.transport, 11, NSFontWeightRegular, YES);
     NSTextField *status = SCDeviceLocalizedLabel([self status:entry], 11, NSFontWeightRegular, YES);
     NSImageView *dot = [NSImageView imageViewWithImage:SCDeviceSymbol(@"circle.fill")];
@@ -669,7 +820,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     self.details.behavior = NSPopoverBehaviorTransient;
     self.details.contentViewController = controller;
     [self.details showRelativeToRect:button.bounds ofView:button preferredEdge:NSRectEdgeMinX];
-    if (!host && entry.ready) {
+    if (!host && entry.ready && !entry.ios) {
         __weak NSTextField *weakIP = ip;
         __weak SCDeviceDetailCopyButton *weakCopy = copyIP;
         self.detailQuery = [SCDeviceCommand run:self.executable arguments:@[@"-s", entry.serial, @"shell", @"ip", @"-o", @"addr", @"show", @"dev", @"wlan0"] input:nil timeout:4
@@ -951,6 +1102,7 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
         self.fallbackTimer = [NSTimer timerWithTimeInterval:5 repeats:YES block:^(NSTimer *timer) {
             (void)timer;
             SCDeviceManager *manager = weakSelf;
+            [manager refreshIOSDevices];
             if (!manager.watcher.connected || !manager.listed) { [manager refresh:nil]; }
             for (SCDeviceEntry *entry in manager.transports) { [manager loadMetadata:entry]; }
         }];
@@ -964,6 +1116,12 @@ static NSArray<SCDeviceEntry *> *sc_device_picker_entries(const struct sc_vec_ad
     ++self.generation;
     self.scheduled = self.refreshPending = NO;
     [self.watcher stop]; [self.fallbackTimer invalidate]; self.fallbackTimer = nil;
+    for (SCIOSConnectionPreparation *connection in self.iosConnections.allValues) { [connection stop]; }
+    [self.iosConnections removeAllObjects];
+    for (SCMirrorPreparation *preparation in self.iosLaunchPreparations.allValues) { [preparation cancel]; }
+    [self.iosLaunchPreparations removeAllObjects];
+    for (SCMirrorLaunch *launch in self.iosLaunches.allValues) { [launch cleanup]; }
+    [self.iosLaunches removeAllObjects]; [self.iosClickTimes removeAllObjects];
     for (SCMirrorPreparation *request in self.preparations.allValues) { [request cancel]; }
     [self.preparations removeAllObjects];
     [self.snapshot cancel];
@@ -1126,13 +1284,20 @@ sc_device_picker_mirror_shown(void) {
         deliverImmediately:YES];
 }
 
+void SCDevicePickerNativeMirrorShown(NSWindow *window, NSString *serial) {
+    mirrorWindow = window; currentDeviceSerial = [serial copy]; mirrorPresented = NO;
+    sc_device_picker_mirror_shown();
+}
+
 static void
 sc_device_picker_run_windows(void) {
     // The manager may be created later by the Devices action while Settings
     // is already open. Read the shared manager on every iteration.
     while (SCApplicationHasWindows() || SCUpdaterBusy()
             || sc_apk_installer_busy()
-            || deviceManager.pendingPreparations || deviceManager.reconnect.active) {
+            || deviceManager.pendingPreparations || deviceManager.reconnect.active
+            || (nativeIOSMirror && !nativeIOSMirrorClosed)
+            || nativeIOSMirror.hasPendingRecording) {
         @autoreleasepool {
             SDL_Event event;
             if (SDL_WaitEventTimeout(&event, 100)) {
@@ -1201,6 +1366,23 @@ sc_device_picker_run(const struct scrcpy_options *options, struct sc_intr *intr)
         SCDeviceInstallMirrorIcon(bundle);
     }
     sc_apk_installer_register_file_association();
+    if (options->serial && !strncmp(options->serial, "ios-coredevice:", 15)) {
+        if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO)) { return SC_DEVICE_PICKER_ERROR; }
+        sc_device_picker_install_menu(NULL);
+        NSDictionary *environment = NSProcessInfo.processInfo.environment;
+        NSString *identifier = environment[@"ANMIR_IOS_IDENTIFIER"];
+        if (!identifier.length) { return SC_DEVICE_PICKER_ERROR; }
+        NSString *udid = [[NSString stringWithUTF8String:options->serial] substringFromIndex:15];
+        SCIOSDevice *device = [[SCIOSDevice alloc] initWithIdentifier:identifier udid:udid
+            name:environment[@"ANMIR_IOS_NAME"] ?: @"iPhone" system:environment[@"ANMIR_IOS_SYSTEM"] ?: @"iOS"];
+        nativeIOSMirror = [[SCIOSMirrorController alloc] initWithDevice:device];
+        nativeIOSMirrorClosed = NO;
+        nativeIOSMirror.closed = ^{ nativeIOSMirrorClosed = YES; };
+        [nativeIOSMirror show];
+        sc_device_picker_run_windows();
+        [nativeIOSMirror close]; nativeIOSMirror = nil;
+        return SC_DEVICE_PICKER_FINISHED;
+    }
     if (options->serial || options->select_usb ||
             options->select_tcpip || options->tcpip_dst || options->list ||
             !options->window || getenv("ANDROID_SERIAL")) {

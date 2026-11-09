@@ -171,7 +171,41 @@
 "Copy IP address" = "复制 IP 地址";
 "Copied" = "已复制";
 
+/* 通过 USB 连接的 iPhone 和 iPad 投屏。 */
+"iPhone or iPad" = "iPhone 或 iPad";
+"Preparing iPhone mirroring…" = "正在准备 iPhone 投屏…";
+"Could not open iPhone mirroring." = "无法打开 iPhone 投屏。";
+"Could not list connected iPhone or iPad devices." = "无法读取已连接的 iPhone 或 iPad。";
+"The iPhone mirroring component is missing from this build." = "这个版本缺少 iPhone 投屏组件。";
+"Unlock the iPhone and keep its screen on, then try again." = "请解锁 iPhone 并保持亮屏，然后重试。";
+"Could not prepare iPhone mirroring." = "无法准备 iPhone 投屏。";
+"Could not reserve a local preview port." = "无法创建本地预览连接。";
+"Starting iPhone screen stream…" = "正在启动 iPhone 屏幕流…";
+"The iPhone screen stream stopped." = "iPhone 屏幕流已停止。";
+
 /* Software updates */
+/* Native iPhone transport. */
+"The iPhone connection closed or timed out." = "iPhone 连接已关闭或超时。";
+"Unlock the iPhone and check its USB connection and Developer Mode." = "请解锁 iPhone，并检查 USB 连接和开发者模式。";
+"Install Xcode's device support to use native iPhone mirroring on this Mac." = "请先安装 Xcode 的设备支持组件，再使用 iPhone 投屏。";
+"The iPhone's screen service is unavailable. iOS 27 developer services are required." = "iPhone 屏幕服务不可用，需要 iOS 27 开发者服务。";
+"Could not open the iPhone service." = "无法连接 iPhone 服务。";
+"The iPhone USB connection ended." = "iPhone USB 连接已断开。";
+"Could not establish the iPhone USB tunnel." = "无法建立 iPhone USB 连接。";
+"The iPhone USB tunnel is not ready. Try again." = "iPhone USB 连接尚未就绪，请重试。";
+"Could not open the iPhone video receiver." = "无法接收 iPhone 画面。";
+"Could not bind the video receiver." = "无法启动视频接收。";
+"Could not negotiate iPhone video." = "无法建立 iPhone 视频连接。";
+"The iPhone refused video negotiation." = "iPhone 拒绝了视频连接。";
+"Could not configure the video decoder." = "无法配置视频解码器。";
+"No video received from the iPhone. Unlock it and try again." = "未收到 iPhone 画面，请解锁手机后重试。";
+"Could not start the native video decoder." = "无法启动视频解码器。";
+"The native iPhone video stream could not start." = "无法启动 iPhone 视频。";
+"The iPhone video stream stopped." = "iPhone 画面传输已停止。";
+"The video decoder stopped." = "视频解码已停止。";
+"Screenshot" = "截图";
+"Record" = "录制";
+
 "Check for Updates…" = "检查更新…";
 "Checking for updates…" = "正在检查更新…";
 "Could not contact GitHub. Please try again later." = "无法连接 GitHub，请稍后重试。";
@@ -279,3 +313,13 @@
 "Choose a device" = "选择设备";
 "Install “%@” on:" = "将“%@”安装到：";
 "Install" = "安装";
+"Home" = "主页";
+"Recent apps" = "多任务";
+"Back (swipe right in supported apps)" = "返回（模拟右滑，需页面支持）";
+"Record screen (no audio)" = "录制屏幕（不含声音）";
+"Stop recording" = "停止录制";
+"Invalid screen size." = "无法识别屏幕尺寸。";
+"Could not configure the video encoder." = "无法准备视频编码器。";
+"Could not encode the screen recording." = "无法编码录屏画面。";
+"Could not finish the screen recording." = "无法完成录屏文件。";
+"No video frames were recorded." = "录制期间未收到画面。";

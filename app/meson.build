@@ -82,6 +82,11 @@ if host_machine.system() == 'darwin'
         'src/sys/macos/clipboard_writer.m',
         'src/sys/macos/device_picker.m',
         'src/sys/macos/finder_device_menu.m',
+        'src/sys/macos/ios_mirror.m',
+        'src/sys/macos/ios_native.m',
+        'src/sys/macos/ios_recorder.m',
+        'src/sys/macos/ios_devices.m',
+        'src/sys/macos/ios_preparation.m',
         'src/sys/macos/device_pairing.m',
         'src/sys/macos/device_connection.m',
         'src/sys/macos/device_support.m',
@@ -178,7 +183,8 @@ dependencies = [
 
 if host_machine.system() == 'darwin'
     dependencies += dependency('appleframeworks', modules: [
-        'AppKit', 'CoreImage', 'CoreGraphics', 'CoreServices',
+        'AppKit', 'AVFoundation', 'CoreImage', 'CoreGraphics', 'CoreMedia',
+        'CoreServices', 'CoreVideo', 'QuartzCore',
         'UniformTypeIdentifiers',
     ])
 endif
@@ -390,6 +396,21 @@ if get_option('buildtype') == 'debug'
             objc_args: ['-UNDEBUG'])
         test('test_about_window', about_test,
             args: [meson.current_source_dir() / 'data/locales', meson.current_source_dir() / 'data/anmir-dock.icns'], timeout: 20)
+        ios_hid_test = executable('test_ios_hid', 'tests/test_ios_hid.c',
+            include_directories: src_dir, c_args: ['-UNDEBUG'])
+        test('test_ios_hid', ios_hid_test)
+        ios_preparation_test = executable('test_ios_preparation',
+            ['tests/test_ios_preparation.m', 'src/sys/macos/ios_preparation.m'],
+            include_directories: src_dir,
+            dependencies: dependency('appleframeworks', modules: ['Foundation']),
+            objc_args: ['-UNDEBUG'])
+        test('test_ios_preparation', ios_preparation_test)
+        ios_recorder_test = executable('test_ios_recorder',
+            ['tests/test_ios_recorder.m', 'src/sys/macos/ios_recorder.m', 'src/sys/macos/localization.m'],
+            include_directories: src_dir,
+            dependencies: dependency('appleframeworks', modules: ['Foundation', 'AVFoundation', 'CoreVideo', 'CoreMedia', 'CoreGraphics']),
+            objc_args: ['-UNDEBUG', '-Wno-deprecated-declarations'])
+        test('test_ios_recorder', ios_recorder_test, timeout: 30)
         updater_test = executable('test_updater',
             ['tests/test_updater.m', 'src/sys/macos/updater.m'],
             include_directories: src_dir,
@@ -408,6 +429,7 @@ if get_option('buildtype') == 'debug'
              'src/sys/macos/settings_ui.m', 'src/sys/macos/about_window.m', 'src/sys/macos/updater.m', 'src/sys/macos/settings_window.m',
              'src/sys/macos/settings.m', 'src/sys/macos/localization.m',
              'src/sys/macos/device_ui.m', 'src/sys/macos/mirror_session.m',
+             'src/sys/macos/ios_preparation.m',
              'src/sys/macos/device_wifi.m', 'src/sys/macos/device_relay.m', 'src/sys/macos/device_reconnect.m', 'src/sys/macos/device_connection.m',
              'src/sys/macos/device_support.m', 'src/sys/macos/device_pairing.m'],
             include_directories: src_dir,

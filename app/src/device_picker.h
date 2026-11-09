@@ -31,4 +31,9 @@ sc_device_picker_set_current_device(const char *serial);
 void
 sc_device_picker_mirror_shown(void);
 
+#ifdef __OBJC__
+@class NSWindow, NSString;
+void SCDevicePickerNativeMirrorShown(NSWindow *window, NSString *serial);
+#endif
+
 #endif

@@ -11,6 +11,7 @@
 #import "sys/macos/device_relay.h"
 #import "sys/macos/device_reconnect.h"
 #import "sys/macos/application_lifecycle.h"
+#import "sys/macos/ios_mirror.h"
 #import <objc/runtime.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -22,7 +23,27 @@
 // Keep the production native window flow, with ADB disabled so this test
 // cannot discover phones, start a server or affect an existing mirror.
 static unsigned adbStarts;
+static unsigned iosShows;
 static BOOL simulateSingleDevice;
+// Keep the launcher fixture independent of physical iOS devices as well as ADB.
+void SCIOSDiscoverDevices(SCIOSDeviceDiscoveryCompletion completion) { completion(@[], nil); }
+NSString *SCIOSDeviceSerial(SCIOSDevice *device) { (void)device; return @"ios-fixture"; }
+@implementation SCIOSDevice
+- (instancetype)initWithIdentifier:(NSString *)identifier udid:(NSString *)udid
+                              name:(NSString *)name system:(NSString *)system {
+    self = [super init];
+    if (self) { _identifier = [identifier copy]; _udid = [udid copy]; _name = [name copy]; _system = [system copy]; }
+    return self;
+}
+@end
+@implementation SCIOSMirrorController
+- (instancetype)initWithDevice:(SCIOSDevice *)device { (void)device; return [super init]; }
+- (BOOL)isRunning { return NO; }
+- (BOOL)isStarting { return NO; }
+- (BOOL)hasPendingRecording { return NO; }
+- (void)show { ++iosShows; if (self.closed) { self.closed(); } }
+- (void)close {}
+@end
 const char *sc_adb_get_executable(void) { return "/usr/bin/false"; }
 bool sc_adb_start_server(struct sc_intr *intr, unsigned flags) {
     (void)intr; (void)flags; ++adbStarts; return simulateSingleDevice;
@@ -335,6 +356,14 @@ static int lifecycleFixture(NSString *mirrorBinary) {
 
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
+        if (argc > 1 && !strcmp(argv[1], "native-ios")) {
+            struct scrcpy_options options = {.window = true, .serial = "ios-coredevice:fixture"};
+            assert(sc_device_picker_run(&options, NULL) == SC_DEVICE_PICKER_FINISHED);
+            assert(iosShows == 1 && adbStarts == 0);
+            SDL_Quit();
+            puts("Native iOS mirror uses its own app startup without starting ADB.");
+            return 0;
+        }
         if (argc > 1 && !strcmp(argv[1], "request")) { return requestSettings(); }
         if (argc > 1 && !strcmp(argv[1], "lifecycle-mirror")) {
             assert(argc == 3);
@@ -376,6 +405,15 @@ int main(int argc, const char *argv[]) {
         if (!status) {
             child = [[NSTask alloc] init]; child.executableURL = [NSURL fileURLWithPath:binary];
             child.arguments = @[@"single-device"];
+            assert([child launchAndReturnError:nil]); [child waitUntilExit];
+            status = child.terminationStatus;
+        }
+        if (!status) {
+            child = [[NSTask alloc] init]; child.executableURL = [NSURL fileURLWithPath:binary];
+            child.arguments = @[@"native-ios"];
+            NSMutableDictionary *environment = NSProcessInfo.processInfo.environment.mutableCopy;
+            environment[@"ANMIR_IOS_IDENTIFIER"] = @"fixture";
+            child.environment = environment;
             assert([child launchAndReturnError:nil]); [child waitUntilExit];
             status = child.terminationStatus;
         }

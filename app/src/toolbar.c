@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "icon.h"
 #include "util/log.h"
@@ -113,6 +114,31 @@ destroy_icon_textures(struct sc_toolbar *toolbar) {
 }
 
 static SDL_Texture *
+create_toolbar_texture(SDL_Renderer *renderer, SDL_Surface *surface) {
+    const char *driver = SDL_GetRendererName(renderer);
+    if (!driver || strcmp(driver, "software")) {
+        return SDL_CreateTextureFromSurface(renderer, surface);
+    }
+
+    // SDL's static software textures enable RLE blits. That fast path assumes
+    // an opaque destination and writes alpha=255 for shadow pixels. Native
+    // hosts composite the result over the desktop, so retain per-pixel alpha
+    // with a streaming texture instead. GPU/Android rendering is unchanged.
+    SDL_Surface *rgba = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32);
+    if (!rgba) {
+        return NULL;
+    }
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
+        SDL_TEXTUREACCESS_STREAMING, rgba->w, rgba->h);
+    if (texture && !SDL_UpdateTexture(texture, NULL, rgba->pixels, rgba->pitch)) {
+        SDL_DestroyTexture(texture);
+        texture = NULL;
+    }
+    SDL_DestroySurface(rgba);
+    return texture;
+}
+
+static SDL_Texture *
 load_icon_texture(struct sc_toolbar *toolbar, const char *name,
                   int asset_size) {
     char filename[64];
@@ -127,8 +153,7 @@ load_icon_texture(struct sc_toolbar *toolbar, const char *name,
         LOGW("Could not load toolbar icon: %s", filename);
         return NULL;
     }
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(toolbar->renderer,
-                                                        surface);
+    SDL_Texture *texture = create_toolbar_texture(toolbar->renderer, surface);
     sc_icon_destroy(surface);
     if (!texture) {
         LOGW("Could not create toolbar icon texture: %s", SDL_GetError());
@@ -223,6 +248,7 @@ sc_toolbar_init(struct sc_toolbar *toolbar, bool enabled,
     toolbar->render_cache_screenshot_enabled = false;
     toolbar->render_cache_record_enabled = false;
     toolbar->render_cache_recording = false;
+    toolbar->render_cache_disabled_actions = 0;
     toolbar->render_cache_hovered = SC_TOOLBAR_ACTION_NONE;
     toolbar->render_cache_pressed = SC_TOOLBAR_ACTION_NONE;
     toolbar->panel = (SDL_FRect) {0};
@@ -582,7 +608,7 @@ create_panel_texture(SDL_Renderer *renderer, float scale,
         }
     }
 
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_Texture *texture = create_toolbar_texture(renderer, surface);
     SDL_DestroySurface(surface);
     if (texture) {
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
@@ -785,6 +811,9 @@ draw_recents(SDL_Renderer *renderer, const SDL_FRect *button, float scale,
 static bool
 action_enabled(enum sc_toolbar_action action,
                const struct sc_toolbar_view_state *state) {
+    if (state->disabled_actions & (UINT32_C(1) << action)) {
+        return false;
+    }
     if (action == SC_TOOLBAR_ACTION_SCREENSHOT) {
         return state->screenshot_enabled;
     }
@@ -910,18 +939,15 @@ render_icon_textures(struct sc_toolbar *toolbar, float scale,
     }
 }
 
-void
-sc_toolbar_render(struct sc_toolbar *toolbar,
-                  const struct sc_toolbar_view_state *state) {
-    if (!toolbar->renderer || !toolbar->window) {
-        return;
-    }
+static void
+sc_toolbar_render_at_density(struct sc_toolbar *toolbar,
+                             const struct sc_toolbar_view_state *state,
+                             float scale) {
     bool theme_changed = toolbar->light_theme != state->light_theme;
     toolbar->light_theme = state->light_theme;
     const struct sc_toolbar_palette *palette = sc_toolbar_get_palette(toolbar);
 
     SDL_Renderer *renderer = toolbar->renderer;
-    float scale = SDL_GetWindowPixelDensity(toolbar->window);
     if (!scale) {
         scale = 1.f;
     }
@@ -941,6 +967,7 @@ sc_toolbar_render(struct sc_toolbar *toolbar,
                     && toolbar->render_cache_record_enabled
                            == state->record_enabled
                     && toolbar->render_cache_recording == state->recording
+                    && toolbar->render_cache_disabled_actions == state->disabled_actions
                     && toolbar->render_cache_hovered == toolbar->hovered
                     && toolbar->render_cache_pressed == toolbar->pressed;
     if (cache_valid) {
@@ -1080,6 +1107,7 @@ sc_toolbar_render(struct sc_toolbar *toolbar,
         toolbar->render_cache_screenshot_enabled = state->screenshot_enabled;
         toolbar->render_cache_record_enabled = state->record_enabled;
         toolbar->render_cache_recording = state->recording;
+        toolbar->render_cache_disabled_actions = state->disabled_actions;
         toolbar->render_cache_hovered = toolbar->hovered;
         toolbar->render_cache_pressed = toolbar->pressed;
     }
@@ -1089,4 +1117,44 @@ sc_toolbar_render(struct sc_toolbar *toolbar,
     if (!SDL_RenderPresent(renderer)) {
         LOGW("Could not present floating toolbar: %s", SDL_GetError());
     }
+}
+
+void
+sc_toolbar_render(struct sc_toolbar *toolbar,
+                  const struct sc_toolbar_view_state *state) {
+    if (!toolbar->renderer || !toolbar->window) {
+        return;
+    }
+    sc_toolbar_render_at_density(toolbar, state,
+                                SDL_GetWindowPixelDensity(toolbar->window));
+}
+
+SDL_Surface *
+sc_toolbar_render_snapshot(const struct sc_toolbar *toolbar,
+                           const struct sc_toolbar_view_state *state,
+                           float density) {
+    if (!isfinite(density) || density <= 0.f || density > 4.f) {
+        return NULL;
+    }
+    SDL_Surface *surface = SDL_CreateSurface(
+        (int) lroundf(SC_TOOLBAR_WINDOW_WIDTH * density),
+        (int) lroundf(SC_TOOLBAR_WINDOW_HEIGHT * density),
+        SDL_PIXELFORMAT_RGBA32);
+    if (!surface) {
+        return NULL;
+    }
+    struct sc_toolbar snapshot;
+    sc_toolbar_init(&snapshot, true, true);
+    snapshot.hovered = toolbar->hovered;
+    snapshot.pressed = toolbar->pressed;
+    snapshot.screenshot_success_until = toolbar->screenshot_success_until;
+    snapshot.renderer = SDL_CreateSoftwareRenderer(surface);
+    if (!snapshot.renderer) {
+        SDL_DestroySurface(surface);
+        return NULL;
+    }
+    SDL_SetRenderDrawBlendMode(snapshot.renderer, SDL_BLENDMODE_BLEND);
+    sc_toolbar_render_at_density(&snapshot, state, density);
+    sc_toolbar_destroy(&snapshot);
+    return surface;
 }

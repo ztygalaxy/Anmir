@@ -277,6 +277,9 @@ copy_data() {
     fi
 }
 
+install -m 644 "$ROOT_DIR/app/data/licenses/ipb-MIT.txt" \
+    "$APP/Contents/Resources/licenses/ipb-MIT.txt"
+
 if [[ "$MODE" = dist ]]; then
     copy_data "$SRC/anmir.png" "$APP/Contents/Resources"
     copy_data "$SRC/disconnected.png" "$APP/Contents/Resources"

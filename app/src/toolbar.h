@@ -49,6 +49,7 @@ struct sc_toolbar {
     bool render_cache_screenshot_enabled;
     bool render_cache_record_enabled;
     bool render_cache_recording;
+    uint32_t render_cache_disabled_actions;
     enum sc_toolbar_action render_cache_hovered;
     enum sc_toolbar_action render_cache_pressed;
     SDL_FRect panel;
@@ -66,6 +67,8 @@ struct sc_toolbar_view_state {
     bool record_enabled;
     bool recording;
     bool reduce_motion;
+    // Platform-specific unavailable actions, without changing their layout.
+    uint32_t disabled_actions;
 };
 
 void
@@ -116,5 +119,12 @@ sc_toolbar_hide(struct sc_toolbar *toolbar);
 void
 sc_toolbar_render(struct sc_toolbar *toolbar,
                   const struct sc_toolbar_view_state *state);
+
+// Render the same toolbar without an SDL window, for native window hosts.
+// The caller owns the returned RGBA surface. Does not mutate toolbar or state.
+SDL_Surface *
+sc_toolbar_render_snapshot(const struct sc_toolbar *toolbar,
+                           const struct sc_toolbar_view_state *state,
+                           float density);
 
 #endif

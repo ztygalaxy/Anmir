@@ -15,6 +15,7 @@ The macOS releases bundle these dependencies:
 | Android Debug Bridge | Platform Tools 37.0.0 | Apache-2.0 and notices in the upstream distribution | https://android.googlesource.com/platform/packages/modules/adb/ |
 | Google Material Icons | Icons adapted in this repository | Apache-2.0 | https://github.com/google/material-design-icons |
 | Android robot artwork | Adapted in the application icon | CC-BY-3.0 | https://developer.android.com/distribute/marketing-tools/brand-guidelines |
+| ipb | CoreDevice media/input integration adapted from 8c227a10710dad479852aa0203de729fed57471b | MIT | https://github.com/ipbtools/ipb |
 
 `Anmir.app/Contents/Resources/licenses/` contains the redistributed license
 texts, including the unmodified Android Platform Tools notice file. FFmpeg is

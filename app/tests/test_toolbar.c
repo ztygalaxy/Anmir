@@ -1,6 +1,8 @@
 #include "common.h"
 
 #include <assert.h>
+#include <math.h>
+#include <string.h>
 #include "icon.h"
 #include "toolbar.h"
 
@@ -98,6 +100,55 @@ test_disabled_toolbar(void) {
            == SC_TOOLBAR_ACTION_NONE);
 }
 
+static void
+test_native_toolbar_snapshot(void) {
+    struct sc_toolbar toolbar;
+    sc_toolbar_init(&toolbar, true, true);
+    struct sc_toolbar_view_state state = {
+        .navigation_enabled = true,
+        .screenshot_enabled = true,
+        .record_enabled = true,
+    };
+    assert(!sc_toolbar_render_snapshot(&toolbar, &state, 0));
+    assert(!sc_toolbar_render_snapshot(&toolbar, &state, NAN));
+    assert(!sc_toolbar_render_snapshot(&toolbar, &state, 10));
+    SDL_Surface *normal = sc_toolbar_render_snapshot(&toolbar, &state, 2);
+    assert(normal);
+    assert(normal->w == SC_TOOLBAR_WINDOW_WIDTH * 2);
+    assert(normal->h == SC_TOOLBAR_WINDOW_HEIGHT * 2);
+    assert(normal->format == SDL_PIXELFORMAT_RGBA32);
+    // The native host must not paint its own solid rectangle over the shadow.
+    const uint8_t *pixels = normal->pixels;
+    assert(pixels[3] == 0);
+    // RLE-backed software textures used to turn the translucent shadow into
+    // fully opaque black. Check both exposed sides, not just a clear corner.
+    int shadow_x = (SC_TOOLBAR_SHADOW_MARGIN + SC_TOOLBAR_PANEL_WIDTH + 1) * 2;
+    int shadow_y = (SC_TOOLBAR_SHADOW_MARGIN + SC_TOOLBAR_PANEL_HEIGHT + 2) * 2;
+    const uint8_t *right_shadow = pixels + 100 * 2 * normal->pitch + shadow_x * 4;
+    const uint8_t *bottom_shadow = pixels + shadow_y * normal->pitch
+        + (SC_TOOLBAR_SHADOW_MARGIN + SC_TOOLBAR_PANEL_WIDTH / 2) * 2 * 4;
+    assert(right_shadow[3] > 0 && right_shadow[3] <= 62);
+    assert(bottom_shadow[3] > 0 && bottom_shadow[3] <= 62);
+    state.disabled_actions = UINT32_C(1) << SC_TOOLBAR_ACTION_BACK;
+    SDL_Surface *disabled = sc_toolbar_render_snapshot(&toolbar, &state, 2);
+    assert(disabled);
+    bool back_changed = false;
+    for (int y = 0; y < normal->h; ++y) {
+        const uint8_t *a = (const uint8_t *)normal->pixels + y * normal->pitch;
+        const uint8_t *b = (const uint8_t *)disabled->pixels + y * disabled->pitch;
+        bool same = !memcmp(a, b, normal->w * 4);
+        SDL_FRect back = toolbar.buttons[SC_TOOLBAR_ACTION_BACK];
+        if (y >= back.y * 2 && y < (back.y + back.h) * 2) { back_changed |= !same; }
+        else { assert(same); }
+    }
+    assert(back_changed);
+    // Snapshot rendering leaves an Android toolbar's live state untouched.
+    assert(!toolbar.renderer && !toolbar.window && !toolbar.render_cache);
+    assert(toolbar.hovered == SC_TOOLBAR_ACTION_NONE);
+    SDL_DestroySurface(normal);
+    SDL_DestroySurface(disabled);
+}
+
 int
 main(int argc, char *argv[]) {
     (void) argc;
@@ -107,5 +158,6 @@ main(int argc, char *argv[]) {
     test_toolbar_screenshot_feedback();
     test_toolbar_initial_visibility();
     test_disabled_toolbar();
+    test_native_toolbar_snapshot();
     return 0;
 }

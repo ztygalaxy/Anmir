@@ -171,7 +171,41 @@
 "Copy IP address" = "Copy IP address";
 "Copied" = "Copied";
 
+/* Connected iPhone and iPad mirroring. */
+"iPhone or iPad" = "iPhone or iPad";
+"Preparing iPhone mirroring…" = "Preparing iPhone mirroring…";
+"Could not open iPhone mirroring." = "Could not open iPhone mirroring.";
+"Could not list connected iPhone or iPad devices." = "Could not list connected iPhone or iPad devices.";
+"The iPhone mirroring component is missing from this build." = "The iPhone mirroring component is missing from this build.";
+"Unlock the iPhone and keep its screen on, then try again." = "Unlock the iPhone and keep its screen on, then try again.";
+"Could not prepare iPhone mirroring." = "Could not prepare iPhone mirroring.";
+"Could not reserve a local preview port." = "Could not reserve a local preview port.";
+"Starting iPhone screen stream…" = "Starting iPhone screen stream…";
+"The iPhone screen stream stopped." = "The iPhone screen stream stopped.";
+
 /* Software updates */
+/* Native iPhone transport. */
+"The iPhone connection closed or timed out." = "The iPhone connection closed or timed out.";
+"Unlock the iPhone and check its USB connection and Developer Mode." = "Unlock the iPhone and check its USB connection and Developer Mode.";
+"Install Xcode's device support to use native iPhone mirroring on this Mac." = "Install Xcode's device support to use native iPhone mirroring on this Mac.";
+"The iPhone's screen service is unavailable. iOS 27 developer services are required." = "The iPhone's screen service is unavailable. iOS 27 developer services are required.";
+"Could not open the iPhone service." = "Could not open the iPhone service.";
+"The iPhone USB connection ended." = "The iPhone USB connection ended.";
+"Could not establish the iPhone USB tunnel." = "Could not establish the iPhone USB tunnel.";
+"The iPhone USB tunnel is not ready. Try again." = "The iPhone USB tunnel is not ready. Try again.";
+"Could not open the iPhone video receiver." = "Could not open the iPhone video receiver.";
+"Could not bind the video receiver." = "Could not bind the video receiver.";
+"Could not negotiate iPhone video." = "Could not negotiate iPhone video.";
+"The iPhone refused video negotiation." = "The iPhone refused video negotiation.";
+"Could not configure the video decoder." = "Could not configure the video decoder.";
+"No video received from the iPhone. Unlock it and try again." = "No video received from the iPhone. Unlock it and try again.";
+"Could not start the native video decoder." = "Could not start the native video decoder.";
+"The native iPhone video stream could not start." = "The native iPhone video stream could not start.";
+"The iPhone video stream stopped." = "The iPhone video stream stopped.";
+"The video decoder stopped." = "The video decoder stopped.";
+"Screenshot" = "Screenshot";
+"Record" = "Record";
+
 "Check for Updates…" = "Check for Updates…";
 "Checking for updates…" = "Checking for updates…";
 "Could not contact GitHub. Please try again later." = "Could not contact GitHub. Please try again later.";
@@ -279,3 +313,13 @@
 "Choose a device" = "Choose a device";
 "Install “%@” on:" = "Install “%@” on:";
 "Install" = "Install";
+"Home" = "Home";
+"Recent apps" = "Recent apps";
+"Back (swipe right in supported apps)" = "Back (swipe right in supported apps)";
+"Record screen (no audio)" = "Record screen (no audio)";
+"Stop recording" = "Stop recording";
+"Invalid screen size." = "Invalid screen size.";
+"Could not configure the video encoder." = "Could not configure the video encoder.";
+"Could not encode the screen recording." = "Could not encode the screen recording.";
+"Could not finish the screen recording." = "Could not finish the screen recording.";
+"No video frames were recorded." = "No video frames were recorded.";
